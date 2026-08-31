@@ -9,7 +9,7 @@ const libraryGameSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["want_to_play", "playing", "completed", "abandoned"],
+      enum: ["want_to_play", "playing", "completed", "dropped"],
       required: true,
       default: "want_to_play",
     },
