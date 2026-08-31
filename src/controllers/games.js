@@ -6,19 +6,18 @@ const URL = `https://rawg.io/api/games?key=${API_KEY}`
 
 
 
-export const findGames = async(res) => {
-    try{   
-        const response = await fetch(URL);
-        const data = await response.json();
-        res.json(data)
-        }  
-    catch(error){
-        console.log(error)
-        res.status(500).json({message:"Erro ao buscar jogos!"})
-    } 
-    }
+export const findGames = async (req ,res) => {
+  try {
+    const response = await fetch(URL);
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Erro ao buscar jogos!" });
+  }
+};
 
-export const findGameById = async(res, req) => {
+export const findGameById = async(req , res) => {
     try{
         const { id } = req.params; 
         const response = await fetch(URL);
