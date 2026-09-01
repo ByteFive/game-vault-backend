@@ -5,6 +5,6 @@ import { findGameById } from "../controllers/games.js";
 const router = Router();
 
 router.get("/games", findGames);
-router.get("/games", findGameById );
+router.get("/games/:id", findGameById );
 
 export default router;
