@@ -1,11 +1,12 @@
 import express from "express";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/user.js";
-import ratingRoutes from "./routes/rating.js"
+import ratingRoutes from "./routes/rating.js";
 import gameRoutes from "./routes/game.js";
-import "dotenv/config.js";
+import top5Routes from "./routes/top5.js";
 import { connectDatabase } from "./lib/db.js";
 import cookieParser from "cookie-parser";
+import "dotenv/config.js";
 
 const app = express();
 app.use(express.json());
@@ -16,7 +17,8 @@ connectDatabase();
 app.use(authRoutes);
 app.use(userRoutes);
 app.use(ratingRoutes);
-app.use( gameRoutes )
+app.use(top5Routes);
+app.use(gameRoutes);
 
 const PORT = Number(process.env.PORT) || 8080;
 

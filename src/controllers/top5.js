@@ -3,13 +3,13 @@ import {
   createTop5,
   updateTop5,
   deleteTop5,
-} from "../services/top5";
+} from "../services/top5.js";
 
 export async function get(req, res) {
   try {
     const user = req.user;
 
-    const top5 = await getTop5ByUserId(user.id);
+    const top5 = await getTop5ByUserId(user.userId);
 
     return res.status(200).json(top5);
   } catch (error) {
@@ -28,7 +28,7 @@ export async function create(req, res) {
     const { position, gameId } = req.body;
 
     const top5 = await createTop5({
-      userId: user.id,
+      userId: user.userId,
       position,
       gameId,
     });
@@ -50,7 +50,7 @@ export async function update(req, res) {
     const { position } = req.params;
 
     const top5 = await updateTop5(
-      user.id,
+      user.userId,
       position,
       req.body
     );
@@ -77,7 +77,7 @@ export async function remove(req, res) {
 
     const { position } = req.params;
 
-    const result = await deleteTop5(user.id, position);
+    const result = await deleteTop5(user.userId, position);
 
     if (result.deletedCount === 0) {
       return res.status(404).json({
@@ -94,18 +94,5 @@ export async function remove(req, res) {
     return res.status(500).json({
       message: "Erro interno do servidor",
     });
-  }
-}
-export async function remove(req, res) {
-  const user = req.user;
-  
-  const { position } = req.params;
-
-  try {
-    await deleteTop5(user.id, position);
-
-    res.status(200).send({ message: "Position deleted sucessfully" });
-  } catch (error) {
-    console.error(error);
   }
 }

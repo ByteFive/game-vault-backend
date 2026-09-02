@@ -1,4 +1,4 @@
-import Top5 from "../models/top5";
+import Top5 from "../models/top5.js";
 
 export async function getTop5ByUserId(userId) {
   return await Top5.find({ userId });
