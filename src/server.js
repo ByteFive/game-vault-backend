@@ -1,6 +1,7 @@
 import express from "express";
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/user.js";
+import ratingRoutes from "./routes/rating.js"
 import "dotenv/config.js";
 import { connectDatabase } from "./lib/db.js";
 import cookieParser from "cookie-parser";
@@ -13,6 +14,7 @@ connectDatabase();
 
 app.use(authRoutes);
 app.use(userRoutes);
+app.use(ratingRoutes);
 
 const PORT = Number(process.env.PORT) || 8080;
 
