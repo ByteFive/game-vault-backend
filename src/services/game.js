@@ -1,7 +1,7 @@
-const API_KEY = process.env.RAWG_API_KEY;
+const RAWG_API_KEY = process.env.RAWG_API_KEY;
 
 async function getGames() {
-  const response = await fetch(`https://api.rawg.io/api/games?key=${API_KEY}`);
+  const response = await fetch(`https://api.rawg.io/api/games?key=${RAWG_API_KEY}`);
 
   const data = await response.json();
 
@@ -21,7 +21,7 @@ async function getGames() {
 
 async function getGameById(id) {
   const response = await fetch(
-    `https://api.rawg.io/api/games/${id}?key=${API_KEY}`,
+    `https://api.rawg.io/api/games/${id}?key=${RAWG_API_KEY}`,
   );
 
   const game = await response.json();
