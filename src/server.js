@@ -5,7 +5,7 @@ import "dotenv/config.js";
 import { createHandler } from "graphql-http/lib/use/express";
 
 import authRoutes from "./routes/auth.js";
-import userRoutes from "./routes/user.js";
+import profileRoutes from "./routes/profile.js";
 import ratingRoutes from "./routes/rating.js";
 import gameRoutes from "./routes/game.js";
 import libraryRoutes from "./routes/library.js";
@@ -27,7 +27,7 @@ connectDatabase();
 // REST
 
 app.use(authRoutes);
-app.use(userRoutes);
+app.use(profileRoutes);
 app.use(ratingRoutes);
 app.use(gameRoutes);
 app.use(libraryRoutes);
