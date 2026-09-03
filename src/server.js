@@ -3,6 +3,7 @@ import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/user.js";
 import ratingRoutes from "./routes/rating.js";
 import gameRoutes from "./routes/game.js";
+import libraryRoutes from "./routes/library.js"
 import top5Routes from "./routes/top5.js";
 import { connectDatabase } from "./lib/db.js";
 import cookieParser from "cookie-parser";
@@ -17,6 +18,8 @@ connectDatabase();
 app.use(authRoutes);
 app.use(userRoutes);
 app.use(ratingRoutes);
+app.use( gameRoutes );
+app.use(libraryRoutes);
 app.use(top5Routes);
 app.use(gameRoutes);
 
