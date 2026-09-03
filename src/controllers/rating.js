@@ -59,9 +59,9 @@ export async function deleteReview(req, res) {
 export async function createReview(req, res) {
   try {
     const userId = req.user.id;
-    const { gameId, score, comment } = req.body;
+    const { gameId, rating, comment } = req.body;
 
-    const review = await createRating({ userId, gameId, score, comment });
+    const review = await createRating({ userId, gameId, rating, comment });
 
     res.status(201).json(review);
   } catch (error) {
@@ -77,9 +77,9 @@ export async function updateReview(req, res) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { score, comment } = req.body;
+    const { rating, comment } = req.body;
 
-    const review = await updateRating(id, userId, { score, comment });
+    const review = await updateRating(id, userId, { rating, comment });
 
     if (!review) {
       return res.status(404).json({
