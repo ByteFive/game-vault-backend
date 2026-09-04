@@ -13,6 +13,15 @@ export const schema = buildSchema(`
     name: String!
     email: String!
     avatar: String
+    createdAt: String
+    updatedAt: String
+  }
+
+  type Profile {
+    name: String!
+    email: String!
+    avatar: String
+    reviewsQuantity: Int!
   }
 
   type Game {
@@ -47,7 +56,7 @@ export const schema = buildSchema(`
     userId: ID!
     gameId: Int!
     rating: Int!
-    review: String
+    comment: String
     game: Game
     createdAt: String
     updatedAt: String
@@ -63,49 +72,113 @@ export const schema = buildSchema(`
     updatedAt: String
   }
 
+  type RegisterPayload {
+    message: String!
+    user: User!
+  }
+
+  type LoginPayload {
+    message: String!
+  }
+
+  type UpdateLibraryPayload {
+    message: String!
+    game: LibraryGame!
+  }
+
+  type RemoveLibraryPayload {
+    message: String!
+    library: Library!
+  }
+
+  type DeleteRatingPayload {
+    message: String!
+  }
+
+  type UpdateTop5Payload {
+    message: String!
+    top5: [Top5!]!
+  }
+
+  type DeleteTop5Payload {
+    message: String!
+  }
+
   type Query {
     games: [Game!]!
-    game(id: Int!): Game
+
+    game(
+      id: Int!
+    ): Game
 
     me: User
 
-    library: Library
+    profile: Profile!
+
+    library: Library!
 
     ratings: [Rating!]!
-    ratingsByGame(gameId: Int!): [Rating!]!
+
+    ratingsByGame(
+      gameId: Int!
+    ): [Rating!]!
 
     top5: [Top5!]!
   }
 
   type Mutation {
-    addGameToLibrary(gameId: Int!): Library!
+    register(
+      name: String!
+      email: String!
+      password: String!
+    ): RegisterPayload!
+
+    login(
+      email: String!
+      password: String!
+    ): LoginPayload!
+
+    addGameToLibrary(
+      gameId: Int!
+    ): Library!
 
     updateLibraryGame(
       gameId: Int!
       status: LibraryGameStatus!
-    ): LibraryGame!
+    ): UpdateLibraryPayload!
 
-    removeGameFromLibrary(gameId: Int!): Library!
+    removeGameFromLibrary(
+      gameId: Int!
+    ): RemoveLibraryPayload!
 
     createRating(
       gameId: Int!
       rating: Int!
-      review: String
+      comment: String
     ): Rating!
 
     updateRating(
       id: ID!
       rating: Int!
-      review: String
+      comment: String
     ): Rating!
 
-    deleteRating(id: ID!): Boolean!
+    deleteRating(
+      id: ID!
+    ): DeleteRatingPayload!
 
-    setTop5(
+    createTop5(
       gameId: Int!
       position: Int!
     ): Top5!
 
-    removeTop5(position: Int!): Boolean!
+    updateTop5(
+      position: Int!
+      newPosition: Int!
+    ): UpdateTop5Payload!
+
+    removeTop5(
+      position: Int!
+    ): DeleteTop5Payload!
   }
 `);

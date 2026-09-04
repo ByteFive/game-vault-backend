@@ -1,548 +1,359 @@
 import User from "../models/user.js";
-import Library from "../models/library.js";
-import Rating from "../models/rating.js";
-import Top5 from "../models/top5.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
-const RAWG_API_KEY = process.env.RAWG_API_KEY;
+import { getGames, getGameById } from "../services/game.js";
+import {
+  addGameToLibrary,
+  getLibrary,
+  updateLibraryGame,
+  deleteGameFromLibrary,
+} from "../services/library.js";
+import { getProfile } from "../services/profile.js";
+import {
+  getAllByUser,
+  getAllByGameId,
+  createRating,
+  updateRating,
+  deleteRating,
+} from "../services/rating.js";
+import {
+  getTop5ByUserId,
+  createTop5,
+  updateTop5,
+  deleteTop5,
+} from "../services/top5.js";
 
-const RAWG_BASE_URL = "https://api.rawg.io/api";
-
-function normalizeGame(rawGame) {
-  if (!rawGame) {
-    return null;
-  }
+function normalizeUser(user) {
+  if (!user) return null;
 
   return {
-    id: rawGame.id,
-    name: rawGame.name,
-    description:
-      rawGame.description_raw ??
-      rawGame.description ??
-      null,
-    released: rawGame.released ?? null,
-    rating: rawGame.rating ?? null,
-    metacritic: rawGame.metacritic ?? null,
-    cover: rawGame.background_image ?? null,
-
-    genres:
-      rawGame.genres?.map(
-        (genre) => genre.name,
-      ) ?? [],
-
-    platforms:
-      rawGame.platforms?.map(
-        (platform) => platform.platform.name,
-      ) ?? [],
-
-    developers:
-      rawGame.developers?.map(
-        (developer) => developer.name,
-      ) ?? [],
+    id: user._id?.toString(),
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar ?? null,
+    createdAt: user.createdAt?.toISOString?.() ?? null,
+    updatedAt: user.updatedAt?.toISOString?.() ?? null,
   };
 }
 
-async function fetchRawg(endpoint) {
-  if (!RAWG_API_KEY) {
-    throw new Error(
-      "RAWG_API_KEY não configurada no ambiente",
-    );
-  }
+async function normalizeLibrary(library) {
+  if (!library) return null;
 
-  const separator = endpoint.includes("?")
-    ? "&"
-    : "?";
-
-  const response = await fetch(
-    `${RAWG_BASE_URL}${endpoint}${separator}key=${RAWG_API_KEY}`,
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `RAWG retornou status ${response.status}`,
-    );
-  }
-
-  return response.json();
-}
-
-async function getGames() {
-  const data = await fetchRawg("/games");
-
-  return data.results.map(normalizeGame);
-}
-
-async function getGameById(id) {
-  const data = await fetchRawg(`/games/${id}`);
-
-  return normalizeGame(data);
-}
-
-function requireAuthenticatedUser(context) {
-  if (!context.user?.userId) {
-    throw new Error("Autenticação necessária");
-  }
-
-  return context.user.userId;
-}
-
-async function populateLibrary(library) {
-  if (!library) {
-    return null;
-  }
-
-  const result = library.toObject
-    ? library.toObject()
-    : library;
-
-  result.id = result._id?.toString() ?? result.id;
-
-  result.games = await Promise.all(
-    result.games.map(async (libraryGame) => ({
+  const games = await Promise.all(
+    library.games.map(async (libraryGame) => ({
       gameId: libraryGame.gameId,
       status: libraryGame.status,
-      game: await getGameById(
-        libraryGame.gameId,
-      ),
+      game: await getGameById(libraryGame.gameId),
     })),
   );
 
-  return result;
+  return {
+    id: library._id?.toString(),
+    userId: library.userId?.toString(),
+    games,
+    createdAt: library.createdAt?.toISOString?.() ?? null,
+    updatedAt: library.updatedAt?.toISOString?.() ?? null,
+  };
 }
 
-async function populateRating(rating) {
-  if (!rating) {
-    return null;
-  }
+async function normalizeRating(rating) {
+  if (!rating) return null;
 
-  const result = rating.toObject
-    ? rating.toObject()
-    : rating;
-
-  result.id = result._id?.toString() ?? result.id;
-
-  result.game = await getGameById(
-    result.gameId,
-  );
-
-  return result;
+  return {
+    id: rating._id?.toString(),
+    userId: rating.userId?.toString(),
+    gameId: rating.gameId,
+    rating: rating.rating,
+    comment: rating.comment ?? null,
+    game: await getGameById(rating.gameId),
+    createdAt: rating.createdAt?.toISOString?.() ?? null,
+    updatedAt: rating.updatedAt?.toISOString?.() ?? null,
+  };
 }
 
-async function populateTop5(top5) {
-  if (!top5) {
-    return null;
+async function normalizeTop5(top5) {
+  if (!top5) return null;
+
+  return {
+    id: top5._id?.toString(),
+    userId: top5.userId?.toString(),
+    gameId: top5.gameId,
+    position: top5.position,
+    game: await getGameById(top5.gameId),
+    createdAt: top5.createdAt?.toISOString?.() ?? null,
+    updatedAt: top5.updatedAt?.toISOString?.() ?? null,
+  };
+}
+
+function createToken(user) {
+  return jwt.sign(
+    {
+      userId: user._id.toString(),
+      role: user.role,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: "1d",
+    },
+  );
+}
+
+function setAuthCookie(res, token) {
+  if (!res) {
+    throw new Error("Resposta HTTP indisponível");
   }
 
-  const result = top5.toObject
-    ? top5.toObject()
-    : top5;
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+}
 
-  result.id = result._id?.toString() ?? result.id;
+function requireAuth(context) {
+  if (!context?.user?.userId) {
+    throw new Error("Authentication required");
+  }
 
-  result.game = await getGameById(
-    result.gameId,
-  );
-
-  return result;
+  return context.user;
 }
 
 export const resolvers = {
-  // =========================
-  // QUERY
-  // =========================
-
   games: async () => {
-    return getGames();
+    return await getGames();
   },
 
-  game: async (_, { id }) => {
-    return getGameById(id);
+  game: async ({ id }) => {
+    return await getGameById(id);
   },
 
-  me: async (_, __, context) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
+  me: async (_, context) => {
+    const user = requireAuth(context);
 
-    const user = await User.findById(userId)
-      .select("-password")
-      .lean();
+    const foundUser = await User.findById(user.userId);
 
-    if (!user) {
+    if (!foundUser) {
       throw new Error("Usuário não encontrado");
     }
 
+    return normalizeUser(foundUser);
+  },
+
+  profile: async (_, context) => {
+    const user = requireAuth(context);
+
+    return await getProfile(user.userId);
+  },
+
+  library: async (_, context) => {
+    const user = requireAuth(context);
+
+    const library = await getLibrary(user.userId);
+
+    return await normalizeLibrary(library);
+  },
+
+  ratings: async (_, context) => {
+    const user = requireAuth(context);
+
+    const ratings = await getAllByUser(user.userId);
+
+    return await Promise.all(ratings.map((rating) => normalizeRating(rating)));
+  },
+
+  ratingsByGame: async ({ gameId }, context) => {
+    requireAuth(context);
+
+    const ratings = await getAllByGameId(gameId);
+
+    return await Promise.all(ratings.map((rating) => normalizeRating(rating)));
+  },
+
+  top5: async (_, context) => {
+    const user = requireAuth(context);
+
+    const top5 = await getTop5ByUserId(user.userId);
+
+    return await Promise.all(top5.map((item) => normalizeTop5(item)));
+  },
+
+  register: async ({ name, email, password }) => {
+    if (!name || !email || !password) {
+      throw new Error("Nome, email e senha são obrigatórios");
+    }
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      throw new Error("Email já cadastrado");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
     return {
-      ...user,
-      id: user._id.toString(),
+      message: "Usuário criado com sucesso",
+      user: normalizeUser(user),
     };
   },
 
-  library: async (_, __, context) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
-
-    const library = await Library.findOne({
-      userId,
-    });
-
-    if (!library) {
-      return null;
+  login: async ({ email, password }, context) => {
+    if (!email || !password) {
+      throw new Error("Email e senha são obrigatórios");
     }
 
-    return populateLibrary(library);
-  },
+    const user = await User.findOne({ email });
 
-  ratings: async (_, __, context) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
-
-    const ratings = await Rating.find({
-      userId,
-    }).sort({
-      createdAt: -1,
-    });
-
-    return Promise.all(
-      ratings.map(populateRating),
-    );
-  },
-
-  ratingsByGame: async (
-    _,
-    { gameId },
-    context,
-  ) => {
-    requireAuthenticatedUser(context);
-
-    const ratings = await Rating.find({
-      gameId,
-    }).sort({
-      createdAt: -1,
-    });
-
-    return Promise.all(
-      ratings.map(populateRating),
-    );
-  },
-
-  top5: async (_, __, context) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
-
-    const top5 = await Top5.find({
-      userId,
-    }).sort({
-      position: 1,
-    });
-
-    return Promise.all(
-      top5.map(populateTop5),
-    );
-  },
-
-  // =========================
-  // MUTATIONS
-  // =========================
-
-  addGameToLibrary: async (
-    _,
-    { gameId },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
-
-    let library = await Library.findOne({
-      userId,
-    });
-
-    if (!library) {
-      library = await Library.create({
-        userId,
-        games: [
-          {
-            gameId,
-            status: "want_to_play",
-          },
-        ],
-      });
-
-      return populateLibrary(library);
+    if (!user) {
+      throw new Error("Email ou senha inválidos");
     }
 
-    const alreadyExists =
-      library.games.some(
-        (game) =>
-          game.gameId === Number(gameId),
-      );
+    const passwordIsValid = await bcrypt.compare(password, user.password);
 
-    if (alreadyExists) {
-      throw new Error(
-        "Esse jogo já está na sua biblioteca",
-      );
+    if (!passwordIsValid) {
+      throw new Error("Email ou senha inválidos");
     }
 
-    library.games.push({
-      gameId,
-      status: "want_to_play",
-    });
+    const token = createToken(user);
 
-    await library.save();
-
-    return populateLibrary(library);
-  },
-
-  updateLibraryGame: async (
-    _,
-    { gameId, status },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
-
-    const library = await Library.findOne({
-      userId,
-    });
-
-    if (!library) {
-      throw new Error(
-        "Biblioteca não encontrada",
-      );
-    }
-
-    const game = library.games.find(
-      (item) =>
-        item.gameId === Number(gameId),
-    );
-
-    if (!game) {
-      throw new Error(
-        "Jogo não encontrado na biblioteca",
-      );
-    }
-
-    game.status = status;
-
-    await library.save();
+    setAuthCookie(context?.res, token);
 
     return {
-      gameId: game.gameId,
-      status: game.status,
-      game: await getGameById(game.gameId),
+      message: "Login successful",
     };
   },
 
-  removeGameFromLibrary: async (
-    _,
-    { gameId },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
+  addGameToLibrary: async ({ gameId }, context) => {
+    const user = requireAuth(context);
 
-    const library = await Library.findOne({
-      userId,
+    const library = await addGameToLibrary(user.userId, gameId);
+
+    return await normalizeLibrary(library);
+  },
+
+  updateLibraryGame: async ({ gameId, status }, context) => {
+    const user = requireAuth(context);
+
+    const game = await updateLibraryGame(user.userId, gameId, status);
+
+    return {
+      message: "Jogo atualizado com sucesso",
+      game: {
+        gameId: game.gameId,
+        status: game.status,
+        game: await getGameById(game.gameId),
+      },
+    };
+  },
+
+  removeGameFromLibrary: async ({ gameId }, context) => {
+    const user = requireAuth(context);
+
+    const library = await deleteGameFromLibrary(user.userId, gameId);
+
+    return {
+      message: "Jogo removido da biblioteca com sucesso",
+      library: await normalizeLibrary(library),
+    };
+  },
+
+  createRating: async ({ gameId, rating, comment }, context) => {
+    const user = requireAuth(context);
+
+    const newRating = await createRating({
+      userId: user.userId,
+      gameId,
+      rating,
+      comment: comment ?? null,
     });
 
-    if (!library) {
-      throw new Error(
-        "Biblioteca não encontrada",
-      );
-    }
-
-    const gameIndex =
-      library.games.findIndex(
-        (game) =>
-          game.gameId === Number(gameId),
-      );
-
-    if (gameIndex === -1) {
-      throw new Error(
-        "Jogo não encontrado na biblioteca",
-      );
-    }
-
-    library.games.splice(gameIndex, 1);
-
-    await library.save();
-
-    return populateLibrary(library);
+    return await normalizeRating(newRating);
   },
 
-  createRating: async (
-    _,
-    { gameId, rating, review },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
+  updateRating: async ({ id, rating, comment }, context) => {
+    const user = requireAuth(context);
 
-    if (rating < 1 || rating > 5) {
-      throw new Error(
-        "A avaliação deve estar entre 1 e 5",
-      );
+    const updatedRating = await updateRating(id, user.userId, {
+      rating,
+      comment: comment ?? null,
+    });
+
+    if (!updatedRating) {
+      throw new Error("Avaliação não encontrada");
     }
 
-    try {
-      const created = await Rating.create({
-        userId,
-        gameId,
-        rating,
-        review: review ?? null,
-      });
-
-      return populateRating(created);
-    } catch (error) {
-      if (error?.code === 11000) {
-        throw new Error(
-          "Você já avaliou esse jogo",
-        );
-      }
-
-      throw error;
-    }
+    return await normalizeRating(updatedRating);
   },
 
-  updateRating: async (
-    _,
-    { id, rating, review },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
+  deleteRating: async ({ id }, context) => {
+    const user = requireAuth(context);
 
-    if (rating < 1 || rating > 5) {
-      throw new Error(
-        "A avaliação deve estar entre 1 e 5",
-      );
+    const result = await deleteRating(id, user.userId);
+
+    if (!result || result.deletedCount === 0) {
+      throw new Error("Avaliação não encontrada");
     }
 
-    const updated =
-      await Rating.findOneAndUpdate(
-        {
-          _id: id,
-          userId,
-        },
-        {
-          rating,
-          review: review ?? null,
-        },
-        {
-          new: true,
-          runValidators: true,
-        },
-      );
-
-    if (!updated) {
-      throw new Error(
-        "Avaliação não encontrada",
-      );
-    }
-
-    return populateRating(updated);
+    return {
+      message: "Avaliação removida com sucesso",
+    };
   },
 
-  deleteRating: async (
-    _,
-    { id },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
-
-    const result =
-      await Rating.deleteOne({
-        _id: id,
-        userId,
-      });
-
-    if (result.deletedCount === 0) {
-      throw new Error(
-        "Avaliação não encontrada",
-      );
-    }
-
-    return true;
-  },
-
-  setTop5: async (
-    _,
-    { gameId, position },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
+  createTop5: async ({ gameId, position }, context) => {
+    const user = requireAuth(context);
 
     if (position < 1 || position > 5) {
-      throw new Error(
-        "A posição deve estar entre 1 e 5",
-      );
+      throw new Error("A posição deve estar entre 1 e 5");
     }
 
-    const existingPosition =
-      await Top5.findOne({
-        userId,
-        position,
-      });
+    const top5 = await createTop5({
+      userId: user.userId,
+      gameId,
+      position,
+    });
 
-    let top5;
-
-    if (existingPosition) {
-      existingPosition.gameId = gameId;
-
-      top5 = await existingPosition.save();
-    } else {
-      try {
-        top5 = await Top5.create({
-          userId,
-          gameId,
-          position,
-        });
-      } catch (error) {
-        if (error?.code === 11000) {
-          throw new Error(
-            "Esse jogo já está no seu Top 5",
-          );
-        }
-
-        throw error;
-      }
-    }
-
-    return populateTop5(top5);
+    return await normalizeTop5(top5);
   },
 
-  removeTop5: async (
-    _,
-    { position },
-    context,
-  ) => {
-    const userId = requireAuthenticatedUser(
-      context,
-    );
+  updateTop5: async ({ position, newPosition }, context) => {
+    const user = requireAuth(context);
 
-    const result =
-      await Top5.deleteOne({
-        userId,
-        position,
-      });
-
-    if (result.deletedCount === 0) {
-      throw new Error(
-        "Posição não encontrada",
-      );
+    if (position < 1 || position > 5 || newPosition < 1 || newPosition > 5) {
+      throw new Error("As posições devem estar entre 1 e 5");
     }
 
-    return true;
+    const result = await updateTop5(user.userId, position, newPosition);
+
+    if (!result) {
+      throw new Error("Jogo não encontrado no Top 5");
+    }
+
+    const top5 = Array.isArray(result) ? result : [result];
+
+    return {
+      message: "Top 5 atualizado com sucesso",
+      top5: await Promise.all(top5.map((item) => normalizeTop5(item))),
+    };
+  },
+
+  removeTop5: async ({ position }, context) => {
+    const user = requireAuth(context);
+
+    const result = await deleteTop5(user.userId, position);
+
+    if (!result || result.deletedCount === 0) {
+      throw new Error("Jogo não encontrado no Top 5");
+    }
+
+    return {
+      message: "Jogo removido do Top 5 com sucesso",
+    };
   },
 };
