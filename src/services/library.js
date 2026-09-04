@@ -52,7 +52,7 @@ export async function updateLibraryGame(userId, gameId, status) {
     "want_to_play",
     "playing",
     "completed",
-    "abandoned",
+    "dropped",
   ];
 
   if (!validStatuses.includes(status)) {
