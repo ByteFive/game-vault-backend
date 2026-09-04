@@ -1,3 +1,5 @@
+import { getGameById, getGames } from "../services/game.js";
+
 export const findGames = async (req, res) => {
   try {
     const games = await getGames();

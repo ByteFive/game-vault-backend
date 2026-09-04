@@ -20,7 +20,7 @@ const ratingSchema = new mongoose.Schema(
       max: 5,
     },
 
-    review: {
+    comment: {
       type: String,
       trim: true,
       default: null,

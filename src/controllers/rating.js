@@ -1,8 +1,8 @@
-import { getAllByGameId, getAllByUser } from "../services/rating.js";
+import { createRating, deleteRating, getAllByGameId, getAllByUser, updateRating } from "../services/rating.js";
 
 export async function getByUser(req, res) {
   try {
-    let userId = req.user.id;
+    let userId = req.user.userId;
     const reviews = await getAllByUser(userId);
 
     res.status(200).json(reviews);
@@ -33,7 +33,7 @@ export async function getByGameId(req, res) {
 export async function deleteReview(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     const review = await deleteRating(id, userId);
 
@@ -58,7 +58,7 @@ export async function deleteReview(req, res) {
 
 export async function createReview(req, res) {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { gameId, rating, comment } = req.body;
 
     const review = await createRating({ userId, gameId, rating, comment });
@@ -76,7 +76,7 @@ export async function createReview(req, res) {
 export async function updateReview(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { rating, comment } = req.body;
 
     const review = await updateRating(id, userId, { rating, comment });

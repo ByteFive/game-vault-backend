@@ -146,10 +146,7 @@ async function populateTop5(top5) {
 }
 
 export const resolvers = {
-  // =========================
   // QUERY
-  // =========================
-
   games: async () => {
     return getGames();
   },
@@ -243,9 +240,7 @@ export const resolvers = {
     );
   },
 
-  // =========================
   // MUTATIONS
-  // =========================
 
   addGameToLibrary: async (
     _,
